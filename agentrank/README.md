@@ -304,21 +304,92 @@ registrants).
 
 ## ENS — Verified identity layer
 
-ENS provides a human-readable, discoverable identity layer on top of ERC-8004.
-During identity ingestion, AgentRank:
+### Why ENS is the natural fit
 
-1. Reverse-resolves the agent owner's wallet to a primary ENS name (if any).
-2. If the agent's metadata declares an ENS name (`services[].name === "ENS"`),
-   forward-resolves it and checks whether it points back to the owner address.
-3. Checks whether the owner's reverse record matches the declared ENS name.
-4. Reads ENS text records (`agent.id`, `agent.uri`, etc.) and checks them
-   against the on-chain ERC-8004 registry data.
+AgentRank's whole problem is that **the agent economy is permissionless and
+therefore free to Sybil**: anyone can mint unlimited ERC-8004 agents and rater
+wallets at near-zero cost, and an ERC-8004 identity is just an opaque number
+(`agentId`) plus a hex address. You can't tell a real operator's agent from one
+of ten thousand throwaways, and you can't *find* an agent you trust again later.
 
-Each match contributes to a 0-15 `ensScore`, stored per-agent in the
-`EnsRecord` table and added to the agent's overall trust score as a bonus.
-Agents without any ENS presence are unaffected — ENS is a trust signal, not a
-requirement. Set `ETH_RPC_URL` in `backend/.env` to use your own RPC provider
-for ENS lookups (falls back to ethers' public default provider otherwise).
+ENS answers exactly that gap, for three reasons that are specific to this problem,
+not cosmetic:
+
+1. **Human-readable + discoverable identity.** ENS turns `agentId 34334` /
+   `0x9f…c2` into `myagent.eth` — a portable, onchain name that works across every
+   app, wallet, and chain. Agents become *findable and referable by name*, which
+   is the precondition for "one-stop discovery of trustworthy agents."
+2. **Bidirectional, cryptographic binding.** ENS gives us forward resolution
+   (name → address), reverse resolution (address → primary name), and text
+   records — enough to *prove* that a name, an owner wallet, and an ERC-8004
+   registry entry all agree, rather than just asserting it. That self-consistency
+   check is precisely the "is this identity real?" signal trust scoring needs.
+3. **It costs money and is scarce.** A `.eth` name is a paid, owned slot in a
+   global namespace. Unlike a free wallet or a free agent registration, you can't
+   mint a million of them for nothing — which is what makes ENS a *barrier to
+   bots* (below), in the same spirit as World ID personhood but at the
+   identity/namespace layer.
+
+### How it's verified — three additive tiers (max 20)
+
+During identity ingestion, [`enrichAgentEns.js`](backend/src/ens/enrichAgentEns.js)
+resolves each agent's ENS presence and awards an additive `ensScore`, capped at
+20 and added to the overall trust score as a bonus (agents with no ENS presence
+are simply unaffected — ENS is a signal, never a requirement):
+
+| Tier | Points | What must be true | What it proves |
+|------|:--:|---|---|
+| **Linked** | +5 | The owner wallet reverse-resolves to a primary ENS name | the operator spent money on a real ENS identity |
+| **Heuristic Verified** | +5 | The declared ENS name forward-resolves to the owner, **or** the owner's reverse record matches the declared name | the name and the wallet are under the same control |
+| **ENSIP-25** | +10 | A bidirectional `agent-registration` text record on the name matches the agent's actual ERC-8004 registry entry | the name is **cryptographically bound** to this specific on-chain agent |
+
+An agent is flagged `ensVerified` when the ENSIP-25 tier passes or `ensScore ≥ 10`.
+
+### ENSIP-25 — verifiable AI agent identity
+
+The top tier implements [ENSIP-25](backend/src/ens/ensip25.js) (Verifiable AI
+Agent Identity with ENS), the strongest and most bot-resistant signal because it
+is a **two-way** attestation that nobody can forge without controlling *both*
+sides:
+
+- **Registry side** — the agent's ERC-8004 metadata must declare the ENS name.
+- **ENS side** — the name must carry the text record
+  `agent-registration[<erc7930-registry>][<agentId>]` set to a non-empty value,
+  where `<erc7930-registry>` is the ERC-7930 interoperable address of the
+  ERC-8004 Identity Registry (chain + contract), e.g. chain 1 +
+  `0x8004…432` → `0x000100000101148004…432`.
+
+So to earn +10, an operator must own the `.eth` name, own the on-chain agent,
+*and* deliberately link the two in both directions. The address encoding is
+chain-scoped, so the attestation can't be replayed against a different chain or
+registry.
+
+### Why this raises the barrier to entry for bots
+
+This is the point that ties ENS back to the core thesis. ERC-8004 wallets and
+agents are free and infinite; ENS-verified identity is neither:
+
+- **Linked** already requires a *paid* `.eth` registration per owner — a real,
+  recurring economic cost an attacker must pay for every distinct identity they
+  want to look legitimate.
+- **Heuristic Verified** requires actually controlling the name's resolution
+  records, not just owning a lookalike name.
+- **ENSIP-25** requires a deliberate, name-and-agent-bound attestation on *both*
+  sides. A bot farm can spin up 10,000 anonymous agents for gas, but it cannot
+  cheaply produce 10,000 ENS names that each carry a valid, registry-matching
+  ENSIP-25 record — the cost and effort scale linearly with every fake identity.
+
+In other words: where the **rater** side of AgentRank uses World ID + BigQuery to
+make *fake feedback* expensive, the **identity** side uses ENS to make a *fake,
+trustworthy-looking agent* expensive. Same Sybil-resistance philosophy, applied
+to the two distinct attack surfaces of a permissionless agent economy.
+
+> Set `ETH_RPC_URL` in `backend/.env` to use a dedicated RPC for ENS lookups
+> (falls back to ethers' public default provider otherwise). On the current
+> 116-agent mainnet snapshot, 47 owner wallets resolve to real primary ENS names
+> (`tekrox.eth`, `holi-dao.eth`, …); no agent yet declares its own ENSIP-25
+> record, which is the honest expected state — full verification requires an
+> operator to opt in, no AgentRank changes needed.
 
 ## x402 — Agent payability signal
 
