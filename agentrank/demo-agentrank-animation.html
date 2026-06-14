@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentRank API Demo Animation</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --ink: #08111f;
+      --muted: #5f6f8a;
+      --line: #dbe4ef;
+      --teal: #009b8f;
+      --green: #00a66a;
+      --amber: #f2a900;
+      --red: #ef3340;
+      --blue: #2364d2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .stage {
+      width: min(1120px, 94vw);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(0, 155, 143, 0.14), transparent 30%),
+        radial-gradient(circle at 92% 18%, rgba(35, 100, 210, 0.10), transparent 28%),
+        linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    .brand {
+      position: absolute;
+      top: 30px;
+      left: 34px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 22px;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--teal);
+      color: white;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .headline {
+      position: absolute;
+      top: 88px;
+      left: 34px;
+      max-width: 460px;
+    }
+
+    .headline h1 {
+      margin: 0;
+      font-size: 36px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .headline p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.45;
+    }
+
+    .worm-wrap {
+      position: absolute;
+      left: 78px;
+      top: 316px;
+      width: 170px;
+      height: 160px;
+      animation: wormBob 1.5s ease-in-out infinite;
+    }
+
+    .worm {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .seg {
+      position: absolute;
+      width: 62px;
+      height: 54px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffb340, #d96a15);
+      border: 2px solid #7a3408;
+      box-shadow: inset -7px -7px 0 rgba(94, 39, 4, 0.16);
+    }
+
+    .s1 { left: 78px; top: 8px; width: 72px; height: 68px; }
+    .s2 { left: 66px; top: 56px; transform: rotate(-10deg); }
+    .s3 { left: 50px; top: 88px; transform: rotate(-16deg); }
+    .s4 { left: 32px; top: 112px; transform: rotate(-22deg); }
+    .s5 { left: 10px; top: 128px; transform: rotate(-26deg); background: linear-gradient(135deg, #e87d22, #b95513); }
+
+    .eye {
+      position: absolute;
+      top: 24px;
+      width: 24px;
+      height: 30px;
+      border: 2px solid #111827;
+      border-radius: 50%;
+      background: white;
+      z-index: 2;
+    }
+
+    .eye.left { left: 94px; }
+    .eye.right { left: 122px; }
+
+    .eye::after {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 11px;
+      right: 4px;
+      bottom: 6px;
+      border-radius: 50%;
+      background: #111827;
+      animation: lookRight 6s linear infinite;
+    }
+
+    .smile {
+      position: absolute;
+      left: 104px;
+      top: 56px;
+      width: 30px;
+      height: 18px;
+      border-bottom: 4px solid #6f2508;
+      border-radius: 0 0 30px 30px;
+      z-index: 3;
+    }
+
+    .antenna {
+      position: absolute;
+      top: -4px;
+      width: 42px;
+      height: 38px;
+      border-top: 3px solid #7a3408;
+      z-index: 1;
+    }
+
+    .antenna.a1 {
+      left: 88px;
+      border-left: 3px solid #7a3408;
+      border-radius: 34px 0 0 0;
+      transform: rotate(-24deg);
+    }
+
+    .antenna.a2 {
+      left: 128px;
+      border-right: 3px solid #7a3408;
+      border-radius: 0 34px 0 0;
+      transform: rotate(22deg);
+    }
+
+    .antenna::after {
+      content: "";
+      position: absolute;
+      top: -8px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ff9f2e;
+      border: 2px solid #7a3408;
+    }
+
+    .a1::after { left: -8px; }
+    .a2::after { right: -8px; }
+
+    .api {
+      position: absolute;
+      left: 456px;
+      top: 246px;
+      width: 250px;
+      min-height: 170px;
+      border: 1px solid #bde8e1;
+      border-radius: 18px;
+      background: #ecfdf8;
+      box-shadow: 0 18px 36px rgba(0, 155, 143, 0.12);
+      padding: 22px;
+      text-align: center;
+    }
+
+    .api .chip {
+      margin: 0 auto 14px;
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: var(--teal);
+      color: white;
+      font-weight: 900;
+      font-size: 21px;
+    }
+
+    .api h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .api p {
+      margin: 9px 0 0;
+      color: #317366;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .agent {
+      position: absolute;
+      right: 64px;
+      width: 270px;
+      min-height: 116px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      padding: 15px 16px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      opacity: 0.78;
+      transform: translateX(0);
+      transition: 450ms ease;
+    }
+
+    .agent.a { top: 130px; }
+    .agent.b { top: 282px; }
+    .agent.c { top: 434px; }
+
+    .agent h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .score {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .bar {
+      margin-top: 8px;
+      height: 8px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: #e5edf5;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      transition: width 700ms ease;
+    }
+
+    .agent.a .fill { background: var(--red); }
+    .agent.b .fill { background: var(--amber); }
+    .agent.c .fill { background: var(--green); }
+
+    .badges {
+      display: flex;
+      gap: 7px;
+      margin-top: 11px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      border-radius: 99px;
+      border: 1px solid #dbe4ef;
+      color: #52637d;
+      font-size: 12px;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+
+    .badge.good {
+      border-color: #98ebc7;
+      color: #00794d;
+      background: #effdf6;
+    }
+
+    .badge.warn {
+      border-color: #ffe08a;
+      color: #9a6400;
+      background: #fff9df;
+    }
+
+    .request,
+    .response {
+      position: absolute;
+      height: 3px;
+      border-radius: 99px;
+      opacity: 0;
+      transform-origin: left center;
+      animation-duration: 6s;
+      animation-iteration-count: infinite;
+      animation-timing-function: ease-in-out;
+    }
+
+    .request {
+      left: 238px;
+      top: 390px;
+      width: 180px;
+      background: linear-gradient(90deg, transparent, var(--blue));
+      animation-name: requestPulse;
+    }
+
+    .response {
+      left: 706px;
+      width: 148px;
+      background: linear-gradient(90deg, transparent, var(--teal));
+    }
+
+    .r1 { top: 182px; animation-name: responseOne; }
+    .r2 { top: 334px; animation-name: responseTwo; }
+    .r3 { top: 486px; animation-name: responseThree; }
+
+    .json-card {
+      position: absolute;
+      left: 238px;
+      width: 210px;
+      border-radius: 14px;
+      border: 1px solid #bfd1e5;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+      padding: 13px 15px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      color: #123050;
+      opacity: 0;
+      transform: translateX(46px) scale(0.96);
+      animation-duration: 6s;
+      animation-iteration-count: infinite;
+      animation-timing-function: ease-in-out;
+    }
+
+    .json-card::before {
+      content: "AgentRank response";
+      display: block;
+      margin-bottom: 7px;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--teal);
+    }
+
+    .json-card.one {
+      top: 168px;
+      animation-name: jsonOne;
+    }
+
+    .json-card.two {
+      top: 270px;
+      animation-name: jsonTwo;
+    }
+
+    .json-card.three {
+      top: 372px;
+      animation-name: jsonThree;
+    }
+
+    .json-card .key { color: #2364d2; }
+    .json-card .str { color: #00784c; }
+    .json-card .num { color: #b45309; }
+    .json-card .bool { color: #7c3aed; }
+
+    .winner {
+      position: absolute;
+      right: 34px;
+      top: 48px;
+      border-radius: 999px;
+      padding: 10px 15px;
+      background: #eafff4;
+      border: 1px solid #93e7bd;
+      color: #00784c;
+      font-size: 13px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: winnerPop 6s ease-in-out infinite;
+    }
+
+    .caption {
+      position: absolute;
+      left: 34px;
+      bottom: 38px;
+      width: 235px;
+      font-size: 16px;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .stage.run .agent.a .fill { animation: fillA 6s ease-in-out infinite; }
+    .stage.run .agent.b .fill { animation: fillB 6s ease-in-out infinite; }
+    .stage.run .agent.c .fill { animation: fillC 6s ease-in-out infinite; }
+    .stage.run .agent.c { animation: selectAgent 6s ease-in-out infinite; }
+
+    @keyframes wormBob {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-9px) rotate(2deg); }
+    }
+
+    @keyframes lookRight {
+      0%, 18% { transform: translateX(0); }
+      24%, 80% { transform: translateX(4px); }
+      86%, 100% { transform: translateX(0); }
+    }
+
+    @keyframes requestPulse {
+      0%, 8% { opacity: 0; transform: scaleX(0); }
+      18%, 34% { opacity: 1; transform: scaleX(1); }
+      42%, 100% { opacity: 0; transform: scaleX(1); }
+    }
+
+    @keyframes responseOne {
+      0%, 20% { opacity: 0; transform: scaleX(0); }
+      27%, 40% { opacity: 1; transform: scaleX(1); }
+      46%, 100% { opacity: 0; transform: scaleX(1); }
+    }
+
+    @keyframes responseTwo {
+      0%, 28% { opacity: 0; transform: scaleX(0); }
+      35%, 48% { opacity: 1; transform: scaleX(1); }
+      54%, 100% { opacity: 0; transform: scaleX(1); }
+    }
+
+    @keyframes responseThree {
+      0%, 36% { opacity: 0; transform: scaleX(0); }
+      43%, 58% { opacity: 1; transform: scaleX(1); }
+      64%, 100% { opacity: 0; transform: scaleX(1); }
+    }
+
+    @keyframes jsonOne {
+      0%, 24% { opacity: 0; transform: translateX(46px) scale(0.96); }
+      30%, 42% { opacity: 1; transform: translateX(0) scale(1); }
+      48%, 100% { opacity: 0; transform: translateX(-30px) scale(0.98); }
+    }
+
+    @keyframes jsonTwo {
+      0%, 34% { opacity: 0; transform: translateX(46px) scale(0.96); }
+      40%, 52% { opacity: 1; transform: translateX(0) scale(1); }
+      58%, 100% { opacity: 0; transform: translateX(-30px) scale(0.98); }
+    }
+
+    @keyframes jsonThree {
+      0%, 44% { opacity: 0; transform: translateX(46px) scale(0.96); }
+      50%, 70% { opacity: 1; transform: translateX(0) scale(1); }
+      78%, 100% { opacity: 0; transform: translateX(-30px) scale(0.98); }
+    }
+
+    @keyframes fillA {
+      0%, 28% { width: 0; }
+      40%, 100% { width: 37%; }
+    }
+
+    @keyframes fillB {
+      0%, 36% { width: 0; }
+      49%, 100% { width: 59%; }
+    }
+
+    @keyframes fillC {
+      0%, 44% { width: 0; }
+      58%, 100% { width: 88%; }
+    }
+
+    @keyframes selectAgent {
+      0%, 58% { transform: translateX(0) scale(1); opacity: 0.78; border-color: var(--line); }
+      68%, 86% { transform: translateX(-16px) scale(1.04); opacity: 1; border-color: #70dfa8; box-shadow: 0 20px 44px rgba(0, 166, 106, 0.18); }
+      100% { transform: translateX(0) scale(1); opacity: 0.78; border-color: var(--line); }
+    }
+
+    @keyframes winnerPop {
+      0%, 62% { opacity: 0; transform: translateY(-6px); }
+      70%, 86% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage run">
+    <div class="brand">
+      <div class="logo">AR</div>
+      <div>AgentRank</div>
+    </div>
+
+    <div class="headline">
+      <h1>Before agents delegate, they check trust.</h1>
+      <p>A worm-like agent calls AgentRank, compares candidates, then chooses the safest agent to pay.</p>
+    </div>
+
+    <div class="worm-wrap" aria-label="worm agent">
+      <div class="worm">
+        <div class="antenna a1"></div>
+        <div class="antenna a2"></div>
+        <div class="seg s1"></div>
+        <div class="seg s2"></div>
+        <div class="seg s3"></div>
+        <div class="seg s4"></div>
+        <div class="seg s5"></div>
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="smile"></div>
+      </div>
+    </div>
+
+    <div class="request"></div>
+
+    <section class="api">
+      <div class="chip">API</div>
+      <h2>/agents/risk</h2>
+      <p>ERC-8004 registry, feedback, ENS, World ID, and AgentKit signals.</p>
+    </section>
+
+    <div class="response r1"></div>
+    <div class="response r2"></div>
+    <div class="response r3"></div>
+
+    <pre class="json-card one">{
+  <span class="key">"agentId"</span>: <span class="str">"A"</span>,
+  <span class="key">"trustScore"</span>: <span class="num">37</span>,
+  <span class="key">"riskLevel"</span>: <span class="str">"high"</span>,
+  <span class="key">"humanBacked"</span>: <span class="bool">false</span>,
+  <span class="key">"recommendation"</span>: <span class="str">"do_not_call"</span>
+}</pre>
+
+    <pre class="json-card two">{
+  <span class="key">"agentId"</span>: <span class="str">"B"</span>,
+  <span class="key">"trustScore"</span>: <span class="num">59</span>,
+  <span class="key">"riskLevel"</span>: <span class="str">"medium"</span>,
+  <span class="key">"ensLinked"</span>: <span class="bool">true</span>,
+  <span class="key">"recommendation"</span>: <span class="str">"review"</span>
+}</pre>
+
+    <pre class="json-card three">{
+  <span class="key">"agentId"</span>: <span class="str">"C"</span>,
+  <span class="key">"trustScore"</span>: <span class="num">88</span>,
+  <span class="key">"riskLevel"</span>: <span class="str">"low"</span>,
+  <span class="key">"humanBacked"</span>: <span class="bool">true</span>,
+  <span class="key">"recommendation"</span>: <span class="str">"proceed"</span>
+}</pre>
+
+    <article class="agent a">
+      <h3>Agent A</h3>
+      <div class="score"><span>risk report</span><strong>37 / 100</strong></div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="badges">
+        <span class="badge">anonymous</span>
+        <span class="badge">0 feedback</span>
+      </div>
+    </article>
+
+    <article class="agent b">
+      <h3>Agent B</h3>
+      <div class="score"><span>risk report</span><strong>59 / 100</strong></div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="badges">
+        <span class="badge warn">ENS linked</span>
+        <span class="badge">1 rating</span>
+      </div>
+    </article>
+
+    <article class="agent c">
+      <h3>Agent C</h3>
+      <div class="score"><span>risk report</span><strong>88 / 100</strong></div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="badges">
+        <span class="badge good">AgentKit backed</span>
+        <span class="badge good">verified feedback</span>
+      </div>
+    </article>
+
+    <div class="winner">Selected: Agent C</div>
+
+    <p class="caption">AgentRank turns raw trust signals into a machine-readable go/no-go decision.</p>
+  </div>
+
+  <script>
+    // Restart the animation on click for clean screen-recording takes.
+    const stage = document.querySelector(".stage");
+    stage.addEventListener("click", () => {
+      stage.classList.remove("run");
+      void stage.offsetWidth;
+      stage.classList.add("run");
+    });
+  </script>
+</body>
+</html>
