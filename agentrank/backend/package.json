@@ -1,0 +1,30 @@
+{
+  "name": "agentrank-backend",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "ingest": "node src/scripts/ingest.js",
+    "backfill:raters": "node src/scripts/backfill-rater-profiles.js",
+    "db:migrate": "npx prisma migrate dev",
+    "db:push": "npx prisma db push",
+    "db:studio": "npx prisma studio"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@google-cloud/bigquery": "^7.9.2",
+    "@prisma/client": "^5.22.0",
+    "@worldcoin/agentkit": "^0.2.0",
+    "@worldcoin/agentkit-core": "^0.2.0",
+    "@worldcoin/idkit-server": "^1.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "fastify": "^4.28.1",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}

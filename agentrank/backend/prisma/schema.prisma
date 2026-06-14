@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id                      Int      @id @default(autoincrement())
+  agentId                 BigInt   @unique
+  identityRegistryAddress String
+  ownerAddress            String?
+  agentWallet             String?
+  agentUri                String?
+  name                    String?
+  description             String?
+  image                   String?
+  active                  Boolean?
+  x402Support             Boolean?
+  servicesJson            String?
+  supportedTrustJson      String?
+  rawMetadataJson         String?
+  ensName                 String?
+  webEndpoint             String?
+  mcpEndpoint             String?
+  a2aEndpoint             String?
+  registeredTxHash        String?
+  registeredBlockNumber   BigInt?
+  registeredAt            DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  feedbackEvents          FeedbackEvent[]
+  trustScore              TrustScore?
+  ensRecord               EnsRecord?
+  ensPassport             EnsPassport?
+}
+
+model FeedbackEvent {
+  id               Int      @id @default(autoincrement())
+  agentId          BigInt
+  clientAddress    String?
+  feedbackIndex    BigInt?
+  valueRaw         String?
+  valueDecimals    Int?
+  valueNormalized  Float?
+  tag1             String?
+  tag2             String?
+  endpoint         String?
+  feedbackUri      String?
+  feedbackHash     String?
+  isRevoked        Boolean  @default(false)
+  txHash           String?
+  blockNumber      BigInt?
+  blockTimestamp   DateTime?
+  createdAt        DateTime @default(now())
+
+  agent            Agent?   @relation(fields: [agentId], references: [agentId])
+}
+
+model TrustScore {
+  id              Int      @id @default(autoincrement())
+  agentId         BigInt   @unique
+  trustScore      Float
+  identityScore   Float
+  reputationScore Float
+  paymentScore    Float
+  ensScore        Float    @default(0)
+  // Owner personhood (World ID): the agent's on-chain owner proved unique
+  // humanity via World ID on AgentRank. Accountability + operator-side Sybil
+  // resistance (one human cannot claim a fleet of owner wallets).
+  ownerScore      Float    @default(0)
+  ownerVerified   Boolean  @default(false)
+  // AgentKit personhood (Delegated World ID): the agent itself is a verified
+  // human-backed agent (a unique human stands behind it at runtime). Distinct
+  // from owner personhood — this is the agent, not its registrant — and stacks.
+  agentKitScore   Float    @default(0)
+  humanBacked     Boolean  @default(false)
+  riskLevel       String
+  reasonsJson     String?
+  computedAt      DateTime @default(now())
+
+  // Sybil-awareness (World ID): reputationScore above is human-weighted;
+  // naiveReputationScore is what the score would be if every wallet were
+  // trusted equally. The delta between the two is the measured Sybil exposure.
+  naiveReputationScore  Float @default(0)
+  verifiedFeedbackCount Int   @default(0)
+  verifiedHumanCount    Int   @default(0)
+
+  agent           Agent    @relation(fields: [agentId], references: [agentId])
+}
+
+model EnsRecord {
+  id                 Int      @id @default(autoincrement())
+  agentId            BigInt   @unique
+  declaredEnsName    String?
+  ownerEnsName       String?
+  ensResolvedAddress String?
+  ensVerified        Boolean  @default(false)
+  ensScore           Float    @default(0)
+  // ENSIP-25 bidirectional attestation (strongest tier): agent metadata claims
+  // the name AND the name carries the agent-registration[...] text record.
+  ensip25Verified    Boolean  @default(false)
+  ensip25Key         String?
+  textRecordsJson    String?
+  reasonsJson        String?
+  checkedAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  agent              Agent    @relation(fields: [agentId], references: [agentId])
+}
+
+model EnsPassport {
+  id                Int       @id @default(autoincrement())
+
+  agentId           BigInt    @unique
+  ensName           String    @unique
+  label             String
+
+  parentName        String?
+
+  status            String    @default("generated")
+  // generated | published | verified | failed
+
+  recordsJson       String?
+  verificationJson  String?
+
+  txHash            String?
+  publishedAt       DateTime?
+  verifiedAt        DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  agent             Agent     @relation(fields: [agentId], references: [agentId])
+}
+
+// World ID personhood binding for reputation raters.
+// One row = one wallet vouched for by one unique human.
+// nullifierHash is unique per (human, action) — the same human verifying a
+// second wallet produces the same nullifier and is rejected, which is the
+// entire Sybil-resistance guarantee.
+model VerifiedRater {
+  id                Int      @id @default(autoincrement())
+  walletAddress     String   @unique
+  nullifierHash     String   @unique
+  verificationLevel String?
+  verifiedAt        DateTime @default(now())
+}
+
+// World ID personhood binding for agent OWNERS (operators), a distinct axis
+// from VerifiedRater. One row = one agent-owner wallet vouched for by one
+// unique human. Uses a separate World ID action ("agentrank-owner") so the
+// same person can be both a verified rater and a verified owner on different
+// wallets — the nullifier is unique per (human, action). Any Agent whose
+// on-chain ownerAddress matches a row here is operated by a known unique human,
+// which raises its trust score. The same human cannot register a second owner
+// wallet (same nullifier → rejected), so an owner cannot Sybil a fleet.
+model VerifiedOwner {
+  id                Int      @id @default(autoincrement())
+  walletAddress     String   @unique
+  nullifierHash     String   @unique
+  verificationLevel String?
+  verifiedAt        DateTime @default(now())
+}
+
+// AgentKit "human-backed agent" binding (Delegated World ID). One row = one
+// agent WALLET proven to be backed by a unique human. Unlike VerifiedOwner /
+// VerifiedRater, AgentKit is explicitly one-human-to-MANY-agents, so:
+//   - walletAddress (the agent's wallet) is unique — one row per agent;
+//   - backingHuman (the World ID nullifier of the delegating human) is NOT
+//     unique — a person can back a fleet, and all their agents share it.
+// backingHuman is therefore the CLUSTER KEY on the rater side: a person's whole
+// fleet of human-backed raters collapses to a single weighted voice. On the
+// scored-agent side, a match raises trust (the agent is operated by a human).
+// Production swaps the delegated-World-ID verification for World's AgentBook
+// verifier (createAgentBookVerifier) on World Chain — same primitive, same key.
+model HumanBackedAgent {
+  id                Int      @id @default(autoincrement())
+  walletAddress     String   @unique
+  backingHuman      String
+  verificationLevel String?
+  // "agentbook"  = resolved from World's on-chain AgentBook via the AgentKit SDK
+  //                (the real integration — backingHuman is AgentBook's id).
+  // "standin"    = delegated-World-ID + wallet signature recorded by AgentRank
+  //                (demo fallback when an agent isn't registered in AgentBook).
+  source            String   @default("standin")
+  verifiedAt        DateTime @default(now())
+
+  @@index([backingHuman])
+}
+
+model IngestionCheckpoint {
+  id              Int      @id @default(autoincrement())
+  source          String   @unique
+  lastBlockNumber BigInt?
+  lastTimestamp   DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+// Sybil-resistance profile for a feedback rater wallet, derived from Google
+// BigQuery over Ethereum mainnet. Cached so scoring never hits BigQuery in the
+// hot path. Two data sources:
+//   - ERC-8004 reputation logs  -> agentsRated (fan-out / spray), totalFeedbacks
+//   - mainnet transactions      -> firstSeen, lifetimeTxsSent (max nonce + 1),
+//                                  distinctCounterparties, funder (first inbound)
+// raterWeight (0..1) and clusterKey are derived from these and consumed by the
+// trust-score reputation computation. A wallet with no row falls back to the
+// base unverified weight with owner-only clustering (BigQuery signals are
+// additive, never required).
+model RaterProfile {
+  id                     Int       @id @default(autoincrement())
+  walletAddress          String    @unique
+
+  // --- Reputation behaviour (ERC-8004 reputation registry, BigQuery logs) ---
+  agentsRated            Int?      // distinct agents this wallet has rated (fan-out)
+  totalFeedbacks         Int?      // total feedback events emitted by this wallet
+  firstRatingAt          DateTime?
+  lastRatingAt           DateTime?
+
+  // --- On-chain economic profile (BigQuery transactions table) ---
+  firstSeen              DateTime? // earliest tx (sent or received) — wallet age
+  lifetimeTxsSent        Int?      // MAX(nonce)+1 — outbound txs ever signed
+  distinctCounterparties Int?      // distinct to_address it has sent to
+  funder                 String?   // from_address of its first inbound value tx
+  firstFundedAt          DateTime?
+
+  // --- Derived ---
+  clusterKey             String?   // resolved controlling entity (owner/fund/self)
+  raterWeight            Float?    // 0..1 sybil-adjusted weight (pre-cluster)
+  flagsJson              String?   // JSON array of human-readable sybil flags
+
+  fetchedAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
